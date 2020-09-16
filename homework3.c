@@ -165,7 +165,7 @@ int main(int argc, char const *argv[]) {
 			byebye();
 		else if(strcmp(arguments[0], "history") == 0){
 
-			if(strcmp(arguments[1], "[-c]") == 0){
+			if(strcmp(arguments[1], "-c") == 0){
 				printf("\n\nClearing history\n\n");
 				clearStringPtr(cmdHistory, cmdCount);
 				cmdCount = 0;
@@ -183,12 +183,27 @@ int main(int argc, char const *argv[]) {
 
 			movetodir(arguments[1]);
 
-		}else if(strcmp(arguments[0], "start") == 0){
+		}else if((strcmp(arguments[0], "start") == 0)){
+			// program = arguments[1];
 
+			/*
+			 *	Any arugments[i] where i > 2, are the parameters for the program
+			 */
+	
+			
+			
 		}else if(strcmp(arguments[0], "background") == 0){
+				// program = arguments[1];
+
+			/*
+			 *	Any arugments[i] where i > 2, are the parameters for the program
+			 */
 
 		}else if(strcmp(arguments[0], "exterminate") == 0){
 
+			// PID = arguments[1];
+			// Kill process
+			// Print :success or failure
 		}
 
 
