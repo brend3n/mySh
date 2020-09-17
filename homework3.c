@@ -3,6 +3,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
+#include<sys/wait.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -36,15 +38,16 @@ void movetodir(char* dir){
 
 }
 
-void  whereami( ){
+char*  whereami( ){
 
 	char path [100];
 	if (path == NULL){
 		printf("Null pointer passed into: whereami\n");
-		return;
+		return NULL;
 	}
 
 	printf("%s\n", getcwd(path, 100));
+	return getcwd(path,100);
 }
 
 void  history(char **commands){
@@ -82,7 +85,24 @@ void trimNewLine(char buffer[]){
 			buffer[i] = ' ';
 	}
 }
- 
+
+
+/*void start(char *[] param){
+
+
+
+}
+
+void background(char *[] param){
+
+
+
+
+}
+ */
+
+
+
 
 
 
@@ -96,6 +116,7 @@ int main(int argc, char const *argv[]) {
 	int cmdCount = 0;
 	char delimiter [4] = " ";
 	int j;
+	int pid;
 
 
 	
@@ -184,26 +205,171 @@ int main(int argc, char const *argv[]) {
 			movetodir(arguments[1]);
 
 		}else if((strcmp(arguments[0], "start") == 0)){
+			
+		
+			pid_t pid;
+			int status, died;
+			
+			char* param[50];
+			char* program;
+			int numParam = numArgs - 1;
+
+			// allocating space
+			for(int i = 0; i < 50; i++)
+				param[i] = malloc(sizeof(char*) * 100);
+
+			// getting the program
+			program = arguments[1];
+
+			printf("program: %s\n", program);
+
+
+			printf("bennenene\n");
+
+			// storing parameters from tokens
+			for(int i = 1, j = 0; i < numArgs; i++, j++)
+			{
+			//	printf("i: %d\tj: %d\n", i ,j);
+				strcpy(param[j], arguments[i]);
+			}
+
+			// appending the NULL
+			param[numArgs - 1] = '\0';
+
+			for(int i =0; i < (numArgs); i++)
+				printf("param[%d]: %s\n", i, param[i]);
+			
+
+			pid = fork();
+
+			if(pid == 0){
+				printf("Program exec: %s\n", program);
+				printf("execv...\n");
+				execvp(program, param);
+				printf("after execv\n");
+			}
+			else if(pid == -1){
+				printf("pid == -1\n");
+				printf("can't fork\n");
+				exit(1);
+			}else{
+
+				printf("died\n");
+				died = waitpid(pid, &status, 0);
+
+			}
+
+			
+
+
+		/*	if(arguments[1][0] == '/'){
+				// Full path
+
+				// Start program
+				// start(program, parameters[]);
+
+				
+
+
+
+			}else{
+
+				
 			// program = arguments[1];
 
-			/*
-			 *	Any arugments[i] where i > 2, are the parameters for the program
-			 */
+			
+			//	Any arugments[i] where i > 2, are the parameters for the program
+			 
+			
+			}
+			*/
 	
 			
 			
 		}else if(strcmp(arguments[0], "background") == 0){
+
+			pid_t pid;
+			int status, died;
+			
+			char* param[50];
+			char* program;
+			int numParam = numArgs - 1;
+
+			// allocating space
+			for(int i = 0; i < 50; i++)
+				param[i] = malloc(sizeof(char*) * 100);
+
+			// getting the program
+			program = arguments[1];
+
+			//printf("program: %s\n", program);
+
+
+			//printf("bennenene\n");
+
+			// storing parameters from tokens
+			for(int i = 1, j = 0; i < numArgs; i++, j++)
+			{
+			//	printf("i: %d\tj: %d\n", i ,j);
+				strcpy(param[j], arguments[i]);
+			}
+
+			// appending the NULL
+			param[numArgs - 1] = '\0';
+
+			for(int i =0; i < (numArgs); i++)
+				printf("param[%d]: %s\n", i, param[i]);
+			
+
+			pid = fork();
+
+			printf("pid: %d\n", pid);
+
+			if(pid == 0){
+				printf("Program exec: %s\n", program);
+				printf("execv...\n");
+				execvp(program, param);
+				printf("after execv\n");
+			}
+			else if(pid == -1){
+				printf("pid == -1\n");
+				printf("can't fork\n");
+				exit(1);
+			}else{
+
+				printf("died\n");
+				died = waitpid(pid, &status, WCONTINUED);
+
+				continue;
+
+			}
+
+
+
+		/*	if(arguments[1][0] == '/'){
+				// Full path
+
+
+			}else{
 				// program = arguments[1];
 
-			/*
-			 *	Any arugments[i] where i > 2, are the parameters for the program
-			 */
+
+			
+			 //	Any arugments[i] where i > 2, are the parameters for the program
+			 
+			}
+			*/
 
 		}else if(strcmp(arguments[0], "exterminate") == 0){
 
-			// PID = arguments[1];
+			 pid = atoi(arguments[1]);
 			// Kill process
 			// Print :success or failure
+			
+			(kill(pid, SIGQUIT) == 0) ? printf("PID: %d\tKill confirmed\n", pid) : printf("PID: %d\tAlive\n", pid);
+			
+			
+
 		}
 
 
