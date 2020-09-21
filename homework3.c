@@ -31,7 +31,7 @@ pidList* newNode(void){
 	return calloc(1, sizeof(pidList));
 }
 
-pidList* add(pidList** head, int pid){
+void add(pidList** head, int pid){
 	pidList* node = newNode();
 	node->pid = pid;
 	node->next = (*head);
@@ -41,7 +41,7 @@ pidList* add(pidList** head, int pid){
 void printPID(pidList* head){
 
 	while(head != NULL){
-		printf("%d ", head->pid);
+		printf("%d\n", head->pid);
 		head = head->next;
 	}
 
@@ -183,7 +183,7 @@ void start(char* param[], char* program){
 		waitpid(pid, &status, 0);
 	}
 }
-void background(char* param[], char* program){
+void background(char* param[], char* program, pidList** head){
 
 	pid_t pid;
 	int status, died;
@@ -193,11 +193,13 @@ void background(char* param[], char* program){
 	printf("pid: %d\n", pid);
 
 	if(pid == 0){
+		// add(head, pid);
 		execvp(program, param);
 		exit(1);
 	}
 	else{
 
+		add(head, pid);
 		waitpid(pid, 0, WNOHANG);
 		return;
 	}
@@ -291,7 +293,7 @@ void begin(){
 			if(strcmp(function, "start") == 0)
 				start(param, program);
 			else if(strcmp(function, "background") == 0)
-				background(param, program);
+				background(param, program, &historyP);
 
 				clearCharArr(param, numParam);
 				free(function);
@@ -299,7 +301,10 @@ void begin(){
 
 		}else if(strcmp(arguments[0], "exterminate") == 0){
 			exterminate(arguments[1]);
-		}else{
+		}else if(strcmp(arguments[0], "penis") == 0) {
+			printPID(historyP);
+		}
+		else{
 			printf("Not a valid command stupid\n");
 		}
 		numArgs = 0;
