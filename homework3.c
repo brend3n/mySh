@@ -193,7 +193,7 @@ void background(char* param[], char* program, pidList** head){
 	printf("pid: %d\n", pid);
 
 	if(pid == 0){
-		// add(head, pid);
+		add(head, pid);
 		execvp(program, param);
 		exit(1);
 	}
@@ -303,8 +303,11 @@ void begin(){
 			exterminate(arguments[1]);
 		}else if(strcmp(arguments[0], "penis") == 0) {
 			printPID(historyP);
-		}
-		else{
+		}else if(strcmp(arguments[0], "booty") == 0) {
+
+			int pid = atoi(arguments[1]);
+			delete(&historyP, pid);
+		}else{
 			printf("Not a valid command stupid\n");
 		}
 		numArgs = 0;
