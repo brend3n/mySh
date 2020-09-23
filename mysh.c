@@ -18,7 +18,7 @@
 #define BUFFER_LENGTH 100
 #define NUM_PID 100
 
-int sickCHILD = -1024;
+int sickCHILD = -1;
 
 void exterminate(int pid);
 
@@ -44,11 +44,6 @@ pidList* newNode_pid(){
 		return calloc(1, sizeof(pidList));
 }
 
-// Returns a new pidList object
-cmdList* newNode_cmd(){
-		return calloc(1, sizeof(cmdList));
-}
-
 // Inserts a new node to the head of the linked list
 void add_pid(pidList** head, int pid){
 
@@ -71,29 +66,6 @@ void add_pid(pidList** head, int pid){
 
 }
 
-char* new_cmd_str(int len){
-	return malloc((len + 1) * sizeof(char));
-}
-
-// Inserts a new node to the head of the linked list
-void add_cmd(cmdList** head, char* cmd_str){
-
-	// Create node
-	cmdList *node = newNode_cmd();
-
-	// Initialize the node's fields
-	// node->cmd_str = malloc((strlen(cmd_str) + 1) * sizeof(char));
-	node->cmd_str = new_cmd_str(strlen(cmd_str));
-	strcpy(node->cmd_str, cmd_str);
-
-	// Link this node's next pointer to the head
-	node->next = (*head);
-
-	// This node is the new head
-	(*head) = node;
-
-}
-
 // Traverses the linked list and prints all active PIDs
 void print_pid(pidList* head){
 
@@ -105,19 +77,6 @@ void print_pid(pidList* head){
 		head = head->next;
 	}
 
-}
-
-// Traverses the linked list and prints all active PIDs
-void print_cmd(cmdList* head){
-
-	int i = 0;
-	if(head == NULL)
-		return;
-
-	while(head != NULL){
-		printf("[%d]: %s\n",i++ ,head->cmd_str);
-		head = head->next;
-	}
 }
 
 // Removes the node from the linked list specified by its PID and kills the process.
@@ -178,6 +137,45 @@ void freeHistory_pid(pidList* head){
 
 }
 
+// Returns a new pidList object
+cmdList* newNode_cmd(){
+		return calloc(1, sizeof(cmdList));
+}
+
+char* new_cmd_str(int len){
+	return malloc((len + 1) * sizeof(char));
+}
+
+// Inserts a new node to the head of the linked list
+void add_cmd(cmdList** head, char* cmd_str){
+
+	// Create node
+	cmdList *node = newNode_cmd();
+
+	// Initialize the node's fields
+	// node->cmd_str = malloc((strlen(cmd_str) + 1) * sizeof(char));
+	node->cmd_str = new_cmd_str(strlen(cmd_str));
+	strcpy(node->cmd_str, cmd_str);
+
+	// Link this node's next pointer to the head
+	node->next = (*head);
+
+	// This node is the new head
+	(*head) = node;
+
+}
+// Traverses the linked list and prints all active PIDs
+void print_cmd(cmdList* head){
+
+	int i = 0;
+	if(head == NULL)
+		return;
+
+	while(head != NULL){
+		printf("[%d]: %s\n",i++ ,head->cmd_str);
+		head = head->next;
+	}
+}
 // Destroys the linked list
 void freeHistory_cmd(cmdList* head){
 
@@ -195,12 +193,16 @@ void freeHistory_cmd(cmdList* head){
 
 }
 
+
+// Kills a single process specified by its PID
+void exterminate(int pid){
+	(kill(pid, SIGKILL) == 0) ? printf("PID: %d\tKill confirmed\n", pid) : printf("PID: %d\tAlive\n", pid);
+}
+
 // Kills are processes.
 void exterminateAll(pidList** head){
 	pidList* tmp = *head;
 	pidList* next;
-
-
 
 	if(tmp == NULL){
 		printf("No one alive\n");
@@ -226,6 +228,55 @@ void exterminateAll(pidList** head){
 	printf("\n");
 	return;
 }
+
+// Runs a single instance of a program in the foreground
+void start(char* param[], char* program){
+	pid_t pid;
+	int status;
+
+	// Forks a child process from the parent process
+	pid = fork();
+
+	// New process runs in the child process
+	if(pid == 0){
+		execvp(program, param);
+		exit(1);
+	}
+
+	waitpid(pid, 0, WUNTRACED);
+}
+
+void kill_child(){
+	delete_pid(parent, sickCHILD);
+}
+
+void handler(){
+
+	printf("sickCHILD: %d\n", sickCHILD);
+	if(sickCHILD == -1)
+		return;
+	sickCHILD = wait(NULL);
+
+	kill_child(parent, sickCHILD);
+	sickCHILD = 0;
+	parent = NULL;
+
+}
+
+void background(char* param[], char* program, pidList** head){
+	signal(SIGCHLD, handler);
+	parent = &(*head);
+	int pid;
+	printf("Parent: %d\n", getpid());
+	pid = fork();
+	if(pid == 0){
+		execvp(program, param);
+		exit(1);
+	}
+
+	add_pid(head, pid);
+}
+
 
 
 
@@ -254,53 +305,8 @@ void movetodir(char* dir){
 
 }
 
-// Runs a single instance of a program in the foreground
-void start(char* param[], char* program){
-	pid_t pid;
-	int status;
 
-	// Forks a child process from the parent process
-	pid = fork();
 
-	// New process runs in the child process
-	if(pid == 0){
-		execvp(program, param);
-		exit(1);
-	}//else{
-		// Parent waits for the child process to finish
-		// waitpid(pid, &status, 0);
-		waitpid(pid, 0, WUNTRACED);
-	//}
-}
-
-void kill_child(){
-	delete_pid(parent, sickCHILD);
-
-}
-
-void handler(){
-	// printf("Child: %d\n", wait(NULL));
-
-	sickCHILD = wait(NULL);
-	printf("sickCHILD: %d\n", sickCHILD);
-
-	kill_child(parent, sickCHILD);
-	sickCHILD = -1;
-	parent = NULL;
-}
-void background(char* param[], char* program, pidList** head){
-	signal(SIGCHLD, handler);
-	parent = &(*head);
-	int pid;
-	printf("Parent: %d\n", getpid());
-	pid = fork();
-	if(pid == 0){
-		execvp(program, param);
-	}//else{
-		add_pid(head, pid);
-	//}
-
-}
 
 // Runs a single instance of a program in the background
 // void background(char* param[], char* program, pidList** head){
@@ -341,30 +347,21 @@ void background(char* param[], char* program, pidList** head){
 // 		// status = waitpid(pid, 0, WNOHANG);
 // }
 
-// Kills a single process specified by its PID
-void exterminate(int pid){
-
-	// delete_pid(pidList** head, int pid_to_delete)
-
-	(kill(pid, SIGKILL) == 0) ? printf("PID: %d\tKill confirmed\n", pid) : printf("PID: %d\tAlive\n", pid);
-}
-
-// Deallocates memory in a 2D char array
-void clearStringPtr(char** ptr, int len){
-
-	for(int i = 0; i <= len; i++){
-		// printf("freeing: %s\n", ptr[i]);
-		free(ptr[i]);
-	}
-
-	free(ptr);
-}
+// // Deallocates memory in a 2D char array
+// void clearStringPtr(char** ptr, int len){
+//
+// 	for(int i = 0; i <= len; i++){
+// 		// printf("freeing: %s\n", ptr[i]);
+// 		free(ptr[i]);
+// 	}
+//
+// 	free(ptr);
+// }
 
 // Deallocates memory in a array of char pointers
 void clearCharArr(char* ptr[], int len){
 
 	for(int i = 0; i < len; i++){
-		// printf("freeing: [%d]\n", i);
 		free(ptr[i]);
 	}
 }
@@ -372,31 +369,13 @@ void clearCharArr(char* ptr[], int len){
 // Replaces the newline character with a space
 void replaceNewLine(char buffer[]){
 
-	// int brendeniscool = strlen(buffer);
-	// buffer[brendeniscool + 1] = ' ';
-	// buffer[brendeniscool + 2] = ' ';
-
 	int len = strlen(buffer);
 	for (int i = 0; i < len; i++){
 		if(buffer[i] == '\n')
 			buffer[i] = ' ';
 	}
 
-	// return buffer;
 }
-
-
-// char* tokenize_it(char input []){
-// 	int len = strlen(input);
-//
-// 	for(int i = 0; i <= len; i++){
-//
-//
-// 	}
-//
-// 	return
-// }
-
 
 void begin(){
 
