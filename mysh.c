@@ -5,20 +5,11 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 #define TRUE 1
-#define FALSE 0
 
-#define NUM_TOKENS 100
-#define TOKEN_LENGTH 100
-#define COMMAND_LENGTH 100
-#define NUM_ARGUMENTS 100
-#define NUM_PARAMETERS 100
-#define PARAMETER_LENGTH 100
 #define BUFFER_LENGTH 100
-#define NUM_PID 100
-
-int sickCHILD = -1;
 
 void exterminate(int pid);
 
@@ -30,6 +21,7 @@ typedef struct PID{
 	struct PID* next;
 }pidList;
 
+// Linked list to store the command history
 typedef struct CMD{
 
 	char* cmd_str;
@@ -37,7 +29,10 @@ typedef struct CMD{
 	struct CMD* next;
 }cmdList;
 
+// Used for removing a finished child process that had previously been in the background
 pidList** parent = NULL;
+int sickCHILD = -1;
+int flag_bit = 0;
 
 // Returns a new pidList object
 pidList* newNode_pid(){
@@ -50,12 +45,6 @@ void add_pid(pidList** head, int pid){
 	// Create node
 	pidList *node = newNode_pid();
 
-	// if(*head == NULL)
-	// {
-	// 	node = newNode_pid();
-	// 	node->pid = pid;
-	// 	node->next = NULL;
-	// }
 		// Initialize the node's fields
 		node->pid = pid;
 		// Link this node's next pointer to the head
@@ -80,8 +69,8 @@ void print_pid(pidList* head){
 }
 
 // Removes the node from the linked list specified by its PID and kills the process.
-// Returns if the PID is not found.
-void delete_pid(pidList** head, int pid_to_delete){
+// Returns if the PID is not found
+void delete_pid(pidList** head, int pid_to_delete) {
 
 	// Pointers used to relink nodes to ensure proper deletion of a node
 	pidList* tmp = *head, *previous;
@@ -94,10 +83,9 @@ void delete_pid(pidList** head, int pid_to_delete){
 
 		// Kill the process
 		exterminate(pid_to_delete);
-		// Free allocated space
 
+		// Free allocated space
 		free(tmp);
-		// printf("\n");
 		return;
 	}
 
@@ -119,7 +107,6 @@ void delete_pid(pidList** head, int pid_to_delete){
 
 	// Free allocated space
 	free(tmp);
-
 }
 
 // Destroys the linked list
@@ -142,6 +129,7 @@ cmdList* newNode_cmd(){
 		return calloc(1, sizeof(cmdList));
 }
 
+// Returns a new string for a cmdList object
 char* new_cmd_str(int len){
 	return malloc((len + 1) * sizeof(char));
 }
@@ -153,7 +141,6 @@ void add_cmd(cmdList** head, char* cmd_str){
 	cmdList *node = newNode_cmd();
 
 	// Initialize the node's fields
-	// node->cmd_str = malloc((strlen(cmd_str) + 1) * sizeof(char));
 	node->cmd_str = new_cmd_str(strlen(cmd_str));
 	strcpy(node->cmd_str, cmd_str);
 
@@ -164,6 +151,7 @@ void add_cmd(cmdList** head, char* cmd_str){
 	(*head) = node;
 
 }
+
 // Traverses the linked list and prints all active PIDs
 void print_cmd(cmdList* head){
 
@@ -176,6 +164,7 @@ void print_cmd(cmdList* head){
 		head = head->next;
 	}
 }
+
 // Destroys the linked list
 void freeHistory_cmd(cmdList* head){
 
@@ -193,10 +182,20 @@ void freeHistory_cmd(cmdList* head){
 
 }
 
-
 // Kills a single process specified by its PID
 void exterminate(int pid){
-	(kill(pid, SIGKILL) == 0) ? printf("PID: %d\tKill confirmed\n", pid) : printf("PID: %d\tAlive\n", pid);
+
+	int res = kill(pid, SIGKILL);
+
+	if(flag_bit){
+		printf("Process Terminated\n");
+		flag_bit = 0;
+		return;
+	}else{
+
+		if(res != 0)
+			printf("Unable to terminate process\n");
+	}
 }
 
 // Kills are processes.
@@ -232,18 +231,14 @@ void exterminateAll(pidList** head){
 // Runs a single instance of a program in the foreground
 void start(char* param[], char* program){
 	pid_t pid;
-	int status;
-
 	// Forks a child process from the parent process
 	pid = fork();
-
 	// New process runs in the child process
 	if(pid == 0){
 		execvp(program, param);
 		exit(1);
 	}
-
-	waitpid(pid, 0, WUNTRACED);
+		waitpid(pid, 0, WUNTRACED);
 }
 
 void kill_child(){
@@ -252,33 +247,29 @@ void kill_child(){
 
 void handler(){
 
-	printf("sickCHILD: %d\n", sickCHILD);
-	if(sickCHILD == -1)
-		return;
 	sickCHILD = wait(NULL);
+	if(sickCHILD != -1){
+		flag_bit = 1;
+		kill_child();
+	}
 
-	kill_child(parent, sickCHILD);
-	sickCHILD = 0;
-	parent = NULL;
-
+	return;
 }
 
 void background(char* param[], char* program, pidList** head){
 	signal(SIGCHLD, handler);
 	parent = &(*head);
 	int pid;
-	printf("Parent: %d\n", getpid());
 	pid = fork();
+
 	if(pid == 0){
 		execvp(program, param);
 		exit(1);
+	}else{
+		printf("PID: %d\n", pid);
+		add_pid(head, pid);
 	}
-
-	add_pid(head, pid);
 }
-
-
-
 
 // Prints and returns the file path of the current directory
 char* whereami(){
@@ -304,59 +295,6 @@ void movetodir(char* dir){
 		printf("Changed directory to: %s\n", dir);
 
 }
-
-
-
-
-// Runs a single instance of a program in the background
-// void background(char* param[], char* program, pidList** head){
-//
-// 	pid_t pid;
-// 	int status;
-// 	int wtf;
-//
-// 	// printf("%d\n", getpid());
-// 	// Forks a child process from the parent process
-// 	pid = fork();
-//
-// 	printf("pid: %d\n", pid);
-//
-//
-// 	if(pid == 0){
-// 		execvp(program, param);
-// 		exit(1);
-// 	}
-// 	// else{
-// 		add(head, pid);
-// 		status = waitpid(pid, 0, WNOHANG);
-// 		// delete(head, status);
-// 		return;
-// 	// }
-// 	// if(pid == 0){
-// 	// 	// add(head, pid);
-// 	// 	wtf = fork();
-// 	// 	if(wtf == 0){
-// 	// 		add(head, pid);
-// 	// 		execvp(program, param);
-// 	// 	}
-// 	// 	exit(1);
-// 	// }
-//
-// 		// add(head, pid);
-// 		// add(head, wtf);
-// 		// status = waitpid(pid, 0, WNOHANG);
-// }
-
-// // Deallocates memory in a 2D char array
-// void clearStringPtr(char** ptr, int len){
-//
-// 	for(int i = 0; i <= len; i++){
-// 		// printf("freeing: %s\n", ptr[i]);
-// 		free(ptr[i]);
-// 	}
-//
-// 	free(ptr);
-// }
 
 // Deallocates memory in a array of char pointers
 void clearCharArr(char* ptr[], int len){
@@ -405,79 +343,41 @@ void begin(){
 
 		// Scan in command with possible arguments
 		fgets(cmdBuffer,sizeof(cmdBuffer), stdin);
-
-
-
 		replaceNewLine(cmdBuffer);
 
 		// Allocating space for the command history
-		// cmdHistory[cmdCount] = malloc((strlen(cmdBuffer) + 1) * sizeof(char));
 		add_cmd(&cmd_history, cmdBuffer);
-		// print_cmd(cmd_history);
-
-		// cmd_history->cmd_str = calloc((strlen(cmdBuffer) + 1)	, sizeof(char));
-		// cmdHistory[cmdCount] = calloc((strlen(cmdBuffer) + 1), sizeof(char));
 
 		// Adding command to command history
-		// strcpy(cmdHistory[cmdCount++], cmdBuffer);
-		// strcpy(cmd_history->cmd_str, cmdBuffer);
 
 		// Tokenizing the command
 		tokenized = strtok(cmdBuffer, delimiter);
-		// printf("Tokenized len: %ld", strlen(tokenized));
-		// printf("cmdBuffer len: %ld", strlen(cmdBuffer));
 
 		// Storing the tokens
 		while(tokenized != NULL){
-			// printf("<Beginning of loop> Tokenized: '%s'\n", tokenized);
 				// Allocate space for the argument
-				// arguments[numArgs] = malloc(sizeof(char) * (strlen(tokenized)+1));
 				arguments[numArgs] = calloc((strlen(tokenized)+1), sizeof(char));
 
 				// Store the argument
 				strcpy(arguments[numArgs++] , tokenized);
-				// printf("arg[%d]: %s", numArgs - 1, arguments[numArgs-1]);
 
 				// Go to the next token
 				tokenized = strtok('\0', delimiter);
-				// tokenized = strtok(cmdBuffer, delimiter);
-				// printf("arg[%d]: %s", numArgs - 1, arguments[numArgs-1]);
-				// printf("<End of loop> Tokenized: '%s'\n", tokenized);
-
 			}
-			// for(int i = 0; i < numArgs; i++)
-				// printf("arguments[%d]: %s\n", i , arguments[i]);
 
-
-		// for(int i = 0; i <= numArgs; i++)
-		// 	printf("poop: %s\n", arguments[i]);
 		if(strcmp(arguments[0], "byebye") == 0){
-
-			// for(int i = 0; i < numArgs; i++)
-			// 	printf("arguments[%d]: %s\n", i , arguments[i]);
 			free(tokenized);
-			// printf("\narugments: ");
-			// clearStringPtr(arguments, numArgs);
-			// printf("Clearing arugmnets\n");
 			clearCharArr(arguments, 1);
 			freeHistory_cmd(cmd_history);
 			freeHistory_pid(pid_history);
-			// printf("\ncmdHistory: ");
-			// clearStringPtr(cmdHistory, cmdCount);
 			byebye();
 		}
 		else if(strcmp(arguments[0], "history") == 0){
 			if(numArgs > 1 && strcmp(arguments[1], "-c") == 0){
-				// clearStringPtr(cmdHistory, cmdCount);
-				// printf("clearing the history\n");
 				freeHistory_cmd(cmd_history);
 				cmd_history = NULL;
-				// cmdCount = 0;
 			}else if(numArgs == 1){
-				// history(cmdHistory, cmdCount);
-				// printf("Printing the history\n");
 				print_cmd(cmd_history);
-				// printf("after printing\n");
 			}
 		}else if(strcmp(arguments[0], "whereami") == 0){
 			whereami();
@@ -501,13 +401,9 @@ void begin(){
 			if(strcmp(arguments[0], "start") == 0)
 				start(param,arguments[1] );
 			else if(strcmp(arguments[0], "background") == 0)
-				// background(param, arguments[1], &historyP);
 				background(param, arguments[1], &pid_history);
-
 				clearCharArr(param, (numArgs));
 		}else if(strcmp(arguments[0], "exterminate") == 0){
-			// delete(&historyP, atoi(arguments[1]));
-			printf("argumebts[1]: %d", atoi(arguments[1]));
 			delete_pid(&pid_history, atoi(arguments[1]));
 		}else if(strcmp(arguments[0], "pidhistory") == 0) {
 			print_pid(pid_history);
